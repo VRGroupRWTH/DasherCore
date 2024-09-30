@@ -1,24 +1,30 @@
-<!-- alphabet defintion for Dasher -->
+<!-- Alphabet definition for Dasher -->
 
 <!ELEMENT alphabet (group*)>
 <!ATTLIST alphabet name CDATA #REQUIRED> <!-- unique name that can be referenced in Dasher to choose this alphabet -->
 <!ATTLIST alphabet orientation (LR|RL|TB|BT) #REQUIRED> <!-- orientation in which this alphabet is typed. Example: LR=Left-to-Right -->
 <!ATTLIST alphabet conversionMode (none|mandarin|routingContextInsensitive|routingContextSensitive) "none"> <!-- conversion mode that is used internally to spawn a decoder that can handle phonetic writing -->
 <!ATTLIST alphabet trainingFilename CDATA #IMPLIED> <!-- filename that is referenced for training the language model -->
-<!ATTLIST alphabet colorsName CDATA "Default"> <!-- unique name of the color schema that should be used by default -->
+<!ATTLIST alphabet colorsName CDATA "Default"> <!-- unique name of the color scheme that should be used by default -->
 
-<!-- Logical groups of symbols, eg name="lowercase" -->
+<!-- Logical groups of symbols, e.g. name="lowercase" -->
 <!ELEMENT group (node*|group*)>
-<!ATTLIST group colorInfoName CDATA #IMPLIED>
+<!ATTLIST group colorInfoName CDATA #REQUIRED>
 <!ATTLIST group name CDATA #IMPLIED>
 <!ATTLIST group label CDATA #IMPLIED>
+<!ATTLIST group speedFactor CDATA #IMPLIED>
 
 <!-- Single symbols -->
-<!ELEMENT node (textCharAction*|deleteTextAction*|moveCursorAction*|fixedTTSAction*|contextTTSAction*|repeatTTSAction*|stopTTSAction*|pauseDasherAction*|atspiAction*|keyboardAction*)>
-<!ATTLIST node label CDATA #REQUIRED>
-<!ATTLIST node text CDATA #IMPLIED> <!-- represents the text that is output and also used for training, defaults to the same value as label -->
+<!ELEMENT node (textCharAction*|deleteTextAction*|moveTextCaretAction*|fixedTTSAction*|contextTTSAction*|repeatTTSAction*|stopTTSAction*|pauseDasherAction*|changeAlphabetAction*|accessibilityAction*|keyboardAction*|socketOutputAction*)>
+<!ATTLIST node label CDATA #IMPLIED>
+<!ATTLIST node trainingUnicode CDATA #IMPLIED>
+<!ATTLIST node windowTitle CDATA #IMPLIED> <!-- Only show this node if the title of the currently focused window matches the given regex -->
 <!ATTLIST node fixedProbability CDATA #IMPLIED>
-<!ATTLIST node speedFactor CDATA #IMPLIED>
+
+<!-- Example usage of the windowTitle attribute: -->
+<!-- <node label="New Tab" windowTitle=".*(Firefox|Chrome|Edge).*" fixedProbability="0.02"> -->
+<!--   <accessibilityAction doAction="NewTab" undoAction="CloseTab"/> -->
+<!-- </node> -->
 
 <!-- Actions that can happen if the node is selected -->
 
@@ -27,56 +33,62 @@
 <!ATTLIST textCharAction unicode CDATA #IMPLIED> <!-- If the Unicode value is unspecified, the label will be used to determine it. If the label is empty or consists of more than one character, an error will be thrown. -->
 
 <!ELEMENT deleteTextAction EMPTY>
-<!ATTLIST deleteTextAction distance CDATA #REQUIRED> <!-- Can be "(last|next) (char|word|sentence|paragraph)", or "all" -->
+<!ATTLIST deleteTextAction range CDATA #REQUIRED> <!-- Can be "char|word|sentence|line|paragraph|all" -->
 
-<!ELEMENT moveCursorAction EMPTY>
-<!ATTLIST moveCursorAction distance CDATA #REQUIRED> <!-- Can be "(last|next) (char|word|sentence|paragraph)" -->
+<!ELEMENT moveTextCaretAction EMPTY>
+<!ATTLIST moveTextCaretAction target CDATA #REQUIRED> <!-- Can be "(previous|next) (char|word|sentence|line|paragraph)", or "start" or "end" -->
 
 <!-- Text-to-Speech: -->
 <!ELEMENT fixedTTSAction EMPTY>
-<!ATTLIST fixedTTSAction text CDATA #REQUIRED> <!-- speaks out the given text -->
+<!ATTLIST fixedTTSAction text CDATA #REQUIRED> <!-- Reads out the given text -->
 
 <!ELEMENT contextTTSAction EMPTY>
-<!ATTLIST contextTTSAction context (word|sentence|paragraph|all) #REQUIRED> <!-- Reads out the last word/sentence/paragraph/all -->
+<!ATTLIST contextTTSAction range CDATA #REQUIRED> <!-- Reads out the current char|word|sentence|line|paragraph|all -->
 
 <!ELEMENT repeatTTSAction EMPTY> <!-- Repeats the last TTS output -->
 
 <!ELEMENT stopTTSAction EMPTY> <!-- Stops any currently ongoing TTS -->
 
 <!-- Dasher-internal: -->
-<!ELEMENT pauseDasherAction EMPTY> <!-- Stops any currently ongoing TTS -->
-<!ATTLIST pauseDasherAction time CDATA #IMPLIED> <!-- Pauses Dasher for the given time, or stops forever if time is unspecified -->
+<!ELEMENT pauseDasherAction EMPTY>
+<!ATTLIST pauseDasherAction time CDATA #IMPLIED> <!-- Pauses Dasher for the given time (in milliseconds), or stops forever if time is negative or unspecified -->
+
+<!ELEMENT changeAlphabetAction EMPTY>
+<!ATTLIST changeAlphabetAction alphabetName CDATA #REQUIRED> <!-- Switches Dasher to the given alphabet -->
+
+<!-- A general action that could be used to change any Dasher setting could look like this, but probably is way too complicated and not that useful:
+<!ELEMENT changeSettingAction EMPTY>
+<!ATTLIST changeSettingAction settingName CDATA #REQUIRED> <!- Stringname of the setting ->
+<!ATTLIST changeSettingAction doValue CDATA #IMPLIED> <!- New value of the setting in case of selection ->
+<!ATTLIST changeSettingAction undoValue CDATA #IMPLIED> <!- New value of the setting in case of deselection ->
+-->
 
 <!-- System/application control: -->
-
-<!ELEMENT changeSettingAction EMPTY>
-<!ATTLIST changeSettingAction settingsName CDATA #REQUIRED> <!-- Stringname of the Setting -->
-<!ATTLIST changeSettingAction doValue CDATA #IMPLIED> <!-- New Value of the Setting in case of selection -->
-<!ATTLIST changeSettingAction undoValue CDATA #IMPLIED> <!-- New Value of the Setting in case of deselection -->
-
 <!-- These two actions enable triggering any action in an application that can be bound to a keyboard shortcut or is accessible
-     via the Assistive Technology Service Provider Interface (AT-SPI). Anything else probably isn't technically feasible. -->
-<!ELEMENT atspiAction EMPTY>
-<!ATTLIST atspiAction action CDATA #REQUIRED> <!-- Sends the specified AT-SPI action to the currently focused application -->
-<!ATTLIST atspiAction undoAction CDATA #REQUIRED> <!-- Sends the specified AT-SPI action to the currently focused application -->
+     via accessibility services like the Assistive Technology Service Provider Interface (AT-SPI). Anything else probably isn't technically feasible. -->
+<!ELEMENT accessibilityAction EMPTY>
+<!ATTLIST accessibilityAction doAction CDATA #REQUIRED> <!-- Sends the specified AT-SPI action to the currently focused application -->
+<!ATTLIST accessibilityAction undoAction CDATA #REQUIRED> <!-- Sends the specified AT-SPI action to the currently focused application -->
 
+<!-- Emulates keyboard keys, given as Java virtual key codes (see https://docs.oracle.com/javase/8/docs/api/java/awt/event/KeyEvent.html) -->
+<!-- Key combinations (mostly used with modifiers) can be achieved using the "press" and "release" attributes and/or a sequence
+     of several actions. Can additionally use "undoPress", "undoKey" and "undoRelease" attributes to specify the key combination
+     to undo this action. Example for "Ctrl+Alt+Del" (using the "x" prefix for hexadecimal numbers): -->
+<!-- <keyboardAction press="x1D"/> -->
+<!-- <keyboardAction press="x38" key="xE053" release="x38"/> -->
+<!-- <keyboardAction release="x1D"/> -->
 <!ELEMENT keyboardAction EMPTY>
-<!ATTLIST keyboardAction key CDATA #IMPLIED> <!-- Emulates a keyboard shortcut, possibly with several modifiers, given as keyboard scancodes divided by commas (e.g. "1d,38,e053" for Ctrl+Alt+Entf), performing a press and a release -->
-<!ATTLIST keyboardAction press CDATA #IMPLIED> <!-- As above, but only performing the press -->
-<!ATTLIST keyboardAction release CDATA #IMPLIED> <!-- As above, but only performing the release -->
-<!ATTLIST keyboardAction undoKey CDATA #IMPLIED> <!-- Emulates a keyboard shortcut, possibly with several modifiers, given as keyboard scancodes divided by commas (e.g. "1d,38,e053" for Ctrl+Alt+Entf), performing a press and a release -->
-<!ATTLIST keyboardAction undoPress CDATA #IMPLIED> <!-- As above, but only performing the press -->
-<!ATTLIST keyboardAction undoRelease CDATA #IMPLIED> <!-- As above, but only performing the release -->
+<!ATTLIST keyboardAction press CDATA #IMPLIED>
+<!ATTLIST keyboardAction key CDATA #IMPLIED>
+<!ATTLIST keyboardAction release CDATA #IMPLIED>
+<!ATTLIST keyboardAction undoPress CDATA #IMPLIED>
+<!ATTLIST keyboardAction undoKey CDATA #IMPLIED>
+<!ATTLIST keyboardAction undoRelease CDATA #IMPLIED>
 
 <!-- External actions: -->
-<!-- Similar to the socket input option, this action enables connecting Dasher to other accessibility tools, sending messages that the other tool can process. -->
+<!-- Similar to the socket input option, this action enables connecting Dasher to other accessibility tools, sending messages that the other tool can process. 
+     The sent messages are implicitly terminated with a newline character, unless suppressNewline is "true".-->
 <!ELEMENT socketOutputAction EMPTY>
-<!ATTLIST socketOutputAction socketName CDATA #IMPLIED>
 <!ATTLIST socketOutputAction doString CDATA #IMPLIED>
 <!ATTLIST socketOutputAction undoString CDATA #IMPLIED>
 <!ATTLIST socketOutputAction suppressNewline CDATA #IMPLIED>
-
-<!-- Especially for the last two, it probably makes sense to add a windowTitle attribute to nodes: -->
-<!-- <node label="New Tab" windowTitle=".*(Firefox|Chrome|Edge).*" fixedProbability="0.02"> Only shows this node if the title of the currently focused window matches the given regex. -->
- <!--  <atspiAction action="NewTab"/> -->
-<!-- </node> -->
